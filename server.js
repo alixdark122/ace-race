@@ -14,7 +14,6 @@ let isConnected = false;
 let reconnectTimer = null;
 let pingInterval = null;
 
-// Deduplication cache
 const recentMessages = new Set();
 const MAX_RECENT = 5000;
 
@@ -24,25 +23,30 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'game.html'));
 });
 
+// Use a public proxy to get channel data without 403
 async function getChatroomId(channelSlug) {
-    const url = `https://kick.com/api/v2/channels/${channelSlug}`;
-    const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Referer': 'https://kick.com/',
-        'Origin': 'https://kick.com'
-    };
-    try {
-        const res = await fetch(url, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const chatroomId = data.chatroom?.id;
-        if (!chatroomId) throw new Error('No chatroom ID');
-        return chatroomId;
-    } catch (err) {
-        console.error('Failed to fetch chatroom ID:', err.message);
-        throw err;
+    // Try multiple proxy endpoints
+    const proxyUrls = [
+        `https://kick.com/api/v2/channels/${channelSlug}`,  // direct (will 403 but try anyway)
+        `https://corsproxy.io/?url=https://kick.com/api/v2/channels/${channelSlug}`,
+        `https://api.allorigins.win/raw?url=https://kick.com/api/v2/channels/${channelSlug}`
+    ];
+    for (const url of proxyUrls) {
+        try {
+            console.log(`Trying proxy: ${url.substring(0, 60)}...`);
+            const res = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const chatroomId = data.chatroom?.id;
+                if (chatroomId) return chatroomId;
+            }
+        } catch (e) {}
     }
+    throw new Error('Could not fetch chatroom ID via any proxy');
 }
 
 function connectToPusher(chatroomId) {
