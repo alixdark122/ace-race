@@ -1,11 +1,19 @@
 {
+  "name": "ace-race",
+  "version": "1.0.0",
+  "description": "Ace Race Kick Giveaway Game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "postinstall": "npx playwright install chromium"
+  },
   "dependencies": {
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
     "kick-live-connector": "^1.0.0",
-    "puppeteer": "^25.1.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "ws": "^8.21.0"
+    "playwright": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
