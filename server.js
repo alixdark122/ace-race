@@ -2,18 +2,19 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
-const { KickConnection, Events } = require('kick-live-connector');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 let gameClients = [];
-let kickConnection = null;
+let pusherWs = null;
 let currentChannel = null;
 let isConnected = false;
+let reconnectTimer = null;
+let pingInterval = null;
 
-// Deduplication: store recent message hashes
+// Deduplication cache
 const recentMessages = new Set();
 const MAX_RECENT = 5000;
 
@@ -23,100 +24,135 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'game.html'));
 });
 
-async function startChatMonitor(channelName) {
-    if (kickConnection) {
-        console.log('Closing existing connection...');
-        kickConnection.disconnect();
-        kickConnection = null;
-        isConnected = false;
-    }
-    // Clear dedup cache for new channel
-    recentMessages.clear();
-
-    console.log(`Connecting to channel: ${channelName}...`);
-    kickConnection = new KickConnection(channelName);
-
-    kickConnection.on(Events.ChatMessage, (data) => {
-        const { content, sender, id } = data;
-        const username = sender?.username;
-        if (!username || !content) return;
-
-        // Create unique key (message ID if available, else content + username + timestamp)
-        const messageKey = id ? `${id}` : `${username}:${content}`;
-        if (recentMessages.has(messageKey)) {
-            // Duplicate, skip
-            return;
-        }
-        recentMessages.add(messageKey);
-        if (recentMessages.size > MAX_RECENT) {
-            // Keep set manageable
-            const toRemove = [...recentMessages].slice(0, MAX_RECENT / 2);
-            toRemove.forEach(k => recentMessages.delete(k));
-        }
-
-        console.log(`📨 ${username}: ${content}`);
-        const payload = JSON.stringify({ type: 'chat', username, content });
-        gameClients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(payload);
-            }
-        });
-    });
-
-    kickConnection.on(Events.Connected, (state) => {
-        console.log(`✅ Connected to chatroom: ${state.roomID}`);
-        isConnected = true;
-    });
-
-    kickConnection.on(Events.Error, (err) => {
-        console.error('❌ Chat connection error:', err);
-        isConnected = false;
-    });
-
-    kickConnection.on(Events.Disconnected, () => {
-        console.log('🛑 Disconnected from chat');
-        isConnected = false;
-    });
-
+async function getChatroomId(channelSlug) {
+    const url = `https://kick.com/api/v2/channels/${channelSlug}`;
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://kick.com/',
+        'Origin': 'https://kick.com'
+    };
     try {
-        await kickConnection.connect();
-        console.log(`✅ Chat monitor active for ${channelName}`);
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const chatroomId = data.chatroom?.id;
+        if (!chatroomId) throw new Error('No chatroom ID');
+        return chatroomId;
+    } catch (err) {
+        console.error('Failed to fetch chatroom ID:', err.message);
+        throw err;
+    }
+}
+
+function connectToPusher(chatroomId) {
+    if (pusherWs) {
+        pusherWs.close();
+        pusherWs = null;
+    }
+    if (pingInterval) clearInterval(pingInterval);
+    const wsUrl = 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0';
+    pusherWs = new WebSocket(wsUrl);
+    pusherWs.onopen = () => {
+        console.log('Pusher WebSocket open');
+        pusherWs.send(JSON.stringify({
+            event: 'pusher:subscribe',
+            data: { auth: '', channel: `chatrooms.${chatroomId}.v2` }
+        }));
+        pingInterval = setInterval(() => {
+            if (pusherWs && pusherWs.readyState === WebSocket.OPEN) {
+                pusherWs.send(JSON.stringify({ event: 'pusher:ping', data: {} }));
+            }
+        }, 30000);
+    };
+    pusherWs.onmessage = (event) => {
+        try {
+            const pkt = JSON.parse(event.data);
+            if (pkt.event === 'pusher:connection_established') {
+                console.log('Pusher connection established');
+                isConnected = true;
+            } else if (pkt.event === 'App\\Events\\ChatMessageEvent') {
+                const msg = JSON.parse(pkt.data);
+                const username = msg.sender?.username;
+                const content = msg.content?.trim() || '';
+                if (username && content) {
+                    const key = `${username}:${content}`;
+                    if (recentMessages.has(key)) return;
+                    recentMessages.add(key);
+                    if (recentMessages.size > MAX_RECENT) {
+                        const toRemove = [...recentMessages].slice(0, MAX_RECENT/2);
+                        toRemove.forEach(k => recentMessages.delete(k));
+                    }
+                    console.log(`📨 ${username}: ${content}`);
+                    const payload = JSON.stringify({ type: 'chat', username, content });
+                    gameClients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) client.send(payload);
+                    });
+                }
+            }
+        } catch (err) {}
+    };
+    pusherWs.onerror = (err) => {
+        console.error('Pusher error:', err.message);
+        isConnected = false;
+    };
+    pusherWs.onclose = () => {
+        console.log('Pusher closed, reconnecting in 5s...');
+        isConnected = false;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(() => {
+            if (currentChannel) {
+                startChatMonitor(currentChannel).catch(console.error);
+            }
+        }, 5000);
+    };
+}
+
+async function startChatMonitor(channelName) {
+    currentChannel = channelName;
+    recentMessages.clear();
+    try {
+        const chatroomId = await getChatroomId(channelName);
+        console.log(`✅ Chatroom ID: ${chatroomId}`);
+        connectToPusher(chatroomId);
         return true;
     } catch (err) {
         console.error('❌ Failed to start chat monitor:', err);
-        isConnected = false;
         return false;
     }
+}
+
+async function stopChatMonitor() {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (pingInterval) clearInterval(pingInterval);
+    if (pusherWs) pusherWs.close();
+    pusherWs = null;
+    isConnected = false;
+    console.log('🛑 Chat monitor stopped');
 }
 
 app.post('/set-channel', async (req, res) => {
     const channel = req.body.channel?.toLowerCase().trim();
     if (!channel) return res.status(400).json({ success: false, error: 'Channel required' });
     try {
-        currentChannel = channel;
+        await stopChatMonitor();
         const success = await startChatMonitor(channel);
-        if (success) {
-            res.json({ success: true, channel });
-        } else {
-            res.status(500).json({ success: false, error: 'Failed to connect to chat.' });
-        }
+        if (success) res.json({ success: true, channel });
+        else res.status(500).json({ success: false, error: 'Failed to connect to chat' });
     } catch (err) {
-        console.error('❌ API error:', err);
+        console.error('API error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
 app.get('/chat-status', (req, res) => {
-    res.json({ connected: isConnected, channel: currentChannel });
+    res.json({ connected: isConnected && pusherWs?.readyState === WebSocket.OPEN, channel: currentChannel });
 });
 
 wss.on('connection', (ws) => {
     console.log('🎮 Game client connected');
     gameClients.push(ws);
-    ws.on('close', () => {
-        gameClients = gameClients.filter(c => c !== ws);
-        console.log('Game client disconnected');
-    });
+    ws.on('close', () => gameClients = gameClients.filter(c => c !== ws));
 });
 
 const PORT = process.env.PORT || 3000;
@@ -125,6 +161,6 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 process.on('SIGINT', async () => {
-    if (kickConnection) kickConnection.disconnect();
+    await stopChatMonitor();
     process.exit();
 });
