@@ -1,0 +1,4 @@
+node_modules/
+channel.txt
+debug_screenshot.png
+.env

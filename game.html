@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Ace Race — Kick Giveaway Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { font-family: 'Nunito', sans-serif; background: #b8daff; background-image: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(25, 198, 253, 0.25), transparent), radial-gradient(ellipse 80% 50% at 80% 50%, rgba(6, 93, 230, 0.08), transparent); min-height: 100vh; padding: 24px; color: #065DE6; }
+        .game-container { max-width: 1600px; margin: 0 auto; background: none; padding: 0; }
+        .title { text-align: center; font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #19C6FD, #065DE6); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 8px; text-shadow: 0 0 15px rgba(25, 198, 253, 0.5); animation: titlePulse 1.5s infinite; }
+        @keyframes titlePulse { 0% { text-shadow: 0 0 5px #19C6FD; } 50% { text-shadow: 0 0 25px #19C6FD, 0 0 10px #065DE6; } 100% { text-shadow: 0 0 5px #19C6FD; } }
+        .sub { text-align: center; color: #165AC9; font-weight: 600; margin-bottom: 28px; }
+        .three-columns { display: flex; flex-wrap: wrap; gap: 24px; }
+        .left-column { flex: 1; min-width: 280px; }
+        .middle-column { flex: 1.5; min-width: 400px; }
+        .right-column { flex: 1; min-width: 280px; }
+        .panel { background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(4px); border-radius: 28px; padding: 20px; border: 1px solid rgba(22, 90, 201, 0.35); box-shadow: 0 2px 12px rgba(6, 93, 230, 0.08); margin-bottom: 20px; }
+        .participants-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: none; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .panel-title { font-weight: 800; font-size: 1.2rem; margin-bottom: 16px; color: #065DE6; border-left: 4px solid #19C6FD; padding-left: 12px; }
+        .input-field { flex: 1; padding: 10px 14px; border-radius: 60px; border: 1px solid rgba(22, 90, 201, 0.35); background: white; outline: none; font-family: 'Nunito', sans-serif; }
+        .btn-blue { background: linear-gradient(135deg, #19C6FD, #165AC9); color: white; border: none; padding: 10px 20px; border-radius: 60px; font-weight: 700; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; font-family: 'Nunito', sans-serif; }
+        .btn-blue:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(25, 198, 253, 0.4); }
+        .btn-secondary, .btn-primary, .btn-danger, .btn-success, .btn-clear { padding: 10px 20px; border-radius: 60px; font-weight: 700; border: none; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; font-family: 'Nunito', sans-serif; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-primary { background: linear-gradient(135deg, #19C6FD, #165AC9); color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-success { background: #22c55e; color: white; }
+        .btn-clear { background: #6b7280; width: 100%; margin-top: 12px; }
+        .btn-secondary:hover, .btn-primary:hover, .btn-danger:hover, .btn-success:hover, .btn-clear:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .connection-status { font-size: 0.8rem; margin-top: 10px; padding: 6px 12px; border-radius: 60px; text-align: center; background: rgba(255,255,255,0.6); }
+        .participant-list { max-height: 500px; overflow-y: auto; margin-top: 16px; }
+        .participant-item { background: rgba(230, 242, 255, 0.8); margin: 8px 0; padding: 8px 12px; border-radius: 60px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(22,90,201,0.2); cursor: pointer; transition: 0.1s; }
+        .participant-item.selected-player1 { background: rgba(25,198,253,0.4); border-left: 6px solid #19C6FD; }
+        .participant-item.selected-player2 { background: rgba(25,198,253,0.2); border-right: 6px solid #19C6FD; }
+        .remove-participant { background: #dc2626; border: none; border-radius: 40px; padding: 2px 12px; color: white; cursor: pointer; }
+        .edit-participant { background: #19C6FD; border: none; border-radius: 40px; padding: 2px 8px; margin-right: 6px; cursor: pointer; color: white; font-size: 12px; }
+        .duel-players { display: flex; gap: 20px; justify-content: center; margin-bottom: 20px; }
+        .player-card { background: rgba(255,255,255,0.7); flex: 1; border-radius: 28px; padding: 20px; text-align: center; border: 2px solid rgba(22, 90, 201, 0.3); transition: all 0.2s; }
+        .active-turn { border: 3px solid #19C6FD; box-shadow: 0 0 20px rgba(25,198,253,0.5); transform: scale(1.02); background: rgba(255,255,255,0.9); }
+        .player-name { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #19C6FD, #065DE6); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 16px; }
+        .card-slot { background: rgba(0,0,0,0.05); border-radius: 20px; padding: 15px; min-height: 180px; display: flex; align-items: center; justify-content: center; }
+        .card-image { width: 110px; height: 154px; object-fit: contain; border-radius: 12px; background: white; box-shadow: 0 8px 20px rgba(0,0,0,0.15); animation: drawCard 0.4s cubic-bezier(0.2,0.9,0.4,1.1); }
+        .card-placeholder { width: 110px; height: 154px; background: rgba(255,255,255,0.6); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #165AC9; border: 2px dashed #19C6FD; }
+        @keyframes drawCard { 0% { opacity: 0; transform: translateY(-40px) rotate(-8deg); } 100% { opacity: 1; transform: translateY(0) rotate(0); } }
+        .winner-badge { margin-top: 12px; font-size: 0.9rem; font-weight: 800; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e293b; padding: 6px 14px; border-radius: 60px; display: inline-block; animation: winnerPulse 0.8s infinite; }
+        @keyframes winnerPulse { 0% { box-shadow: 0 0 0 0 rgba(251,191,36,0.7); transform: scale(1); } 70% { box-shadow: 0 0 0 12px rgba(251,191,36,0); transform: scale(1.05); } 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); transform: scale(1); } }
+        .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
+        .turn-indicator, .deck-status { background: rgba(255,255,255,0.7); border-radius: 60px; padding: 8px 16px; text-align: center; margin: 10px auto; width: fit-content; font-weight: 600; }
+        .winner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 10000; cursor: pointer; }
+        .winner-card { background: linear-gradient(135deg, #fff, #e6f2ff); border-radius: 48px; padding: 40px 60px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 2px solid gold; max-width: 500px; cursor: default; }
+        .winner-card button { padding: 12px 32px; border-radius: 60px; background: #19C6FD; border: none; font-weight: 700; font-size: 1.2rem; cursor: pointer; }
+        .confetti-piece { position: fixed; width: 8px; height: 8px; pointer-events: none; z-index: 9999; animation: confettiFall 1.5s ease-out forwards; }
+        @keyframes confettiFall { to { transform: translateY(100vh) rotate(360deg); opacity: 0; } }
+        .ready-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 20000; cursor: default; }
+        .ready-container { background: linear-gradient(135deg, #fff, #e6f2ff); border-radius: 48px; padding: 30px; max-width: 1200px; width: 90%; border: 2px solid gold; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+        .ready-title { text-align: center; font-size: 2rem; font-weight: 800; margin-bottom: 20px; color: #065DE6; }
+        .ready-players { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; }
+        .ready-player-card { flex: 1; min-width: 300px; background: rgba(255,255,255,0.8); border-radius: 28px; padding: 20px; border: 2px solid #19C6FD; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .ready-player-name { font-size: 1.8rem; font-weight: 800; text-align: center; margin-bottom: 10px; background: linear-gradient(135deg, #19C6FD, #065DE6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .ready-status { text-align: center; font-weight: 600; padding: 6px; border-radius: 60px; margin: 10px 0; }
+        .ready-status.waiting { background: #fef3c7; color: #b45309; }
+        .ready-status.ready { background: #d1fae5; color: #065DE6; }
+        .ready-timer { text-align: center; font-size: 1.2rem; font-weight: 700; margin: 10px 0; }
+        .ready-chat-log { background: #f8fafc; border-radius: 20px; padding: 10px; max-height: 200px; overflow-y: auto; margin: 10px 0; font-family: monospace; font-size: 0.8rem; }
+        .ready-chat-log div { padding: 4px; border-bottom: 1px solid #e2e8f0; }
+        .ready-replace-btn { background: #f59e0b; border: none; padding: 8px 16px; border-radius: 60px; font-weight: 700; color: white; cursor: pointer; margin-top: 10px; width: 100%; transition: transform 0.2s; }
+        .ready-replace-btn:hover { transform: translateY(-2px); background: #d97706; }
+        .ready-start-battle { text-align: center; margin-top: 20px; }
+        .ready-start-battle button { background: linear-gradient(135deg, #19C6FD, #165AC9); border: none; padding: 12px 32px; border-radius: 60px; font-weight: 700; font-size: 1.2rem; color: white; cursor: pointer; transition: transform 0.2s; }
+        .ready-start-battle button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(25,198,253,0.4); }
+        .ready-cancel { text-align: center; margin-top: 10px; }
+        .ready-cancel button { background: #6b7280; border: none; padding: 6px 20px; border-radius: 60px; font-weight: 600; cursor: pointer; }
+        .start-ready-check { text-align: center; margin-top: 15px; }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="title">⚡ ACE RACE ⚡</div>
+    <div class="sub">Viewers type <strong id="modeIndicator">!ace</strong> to join</div>
+
+    <div class="three-columns">
+        <!-- LEFT COLUMN -->
+        <div class="left-column">
+            <div class="panel">
+                <div class="panel-title">🔌 Kick Channel Connection</div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="channelInput" class="input-field" placeholder="e.g., xqc, pokimane, yourchannel">
+                    <button id="setChannelBtn" class="btn-blue">Connect</button>
+                </div>
+                <div id="statusDisplay" class="connection-status">⚪ Not connected</div>
+            </div>
+            <div class="panel">
+                <div class="panel-title">⚙️ Giveaway Mode</div>
+                <div style="margin: 12px 0;">
+                    <label><input type="radio" name="mode" value="keyword" checked> Keyword Mode</label>
+                    <label style="margin-left: 20px;"><input type="radio" name="mode" value="active"> Active Chatter Mode</label>
+                </div>
+                <div id="keywordSettings">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="keywordInput" class="input-field" placeholder="Keyword (e.g., !ace)" value="!ace">
+                        <button id="setKeywordBtn" class="btn-blue">Set</button>
+                    </div>
+                </div>
+                <div id="activeSettings" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
+                        <span>Inactivity timeout:</span>
+                        <input type="range" id="inactivitySlider" min="0" max="5" step="0.5" value="1" style="flex:1;">
+                        <span id="inactivityValue">1</span> min
+                    </div>
+                    <small>Viewers who don't send any message for this time are removed.</small>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-title">Manual Join (Test)</div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="participantName" class="input-field" placeholder="Enter a name">
+                    <button id="joinBtn" class="btn-blue">Join</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MIDDLE COLUMN: Ace Duel -->
+        <div class="middle-column">
+            <div class="panel">
+                <div class="panel-title">⚔️ Ace Duel</div>
+                <div id="selectedDisplay" style="background: rgba(255,255,255,0.5); border-radius: 60px; padding: 8px; margin-bottom: 16px; text-align: center; font-weight: 600;">No players selected</div>
+                <div class="duel-players">
+                    <div class="player-card" id="player1Card">
+                        <div class="player-name" id="p1Name">—</div>
+                        <div class="card-slot" id="p1CardSlot"><div class="card-placeholder">WAITING</div></div>
+                        <div id="p1WinnerBadge"></div>
+                    </div>
+                    <div class="player-card" id="player2Card">
+                        <div class="player-name" id="p2Name">—</div>
+                        <div class="card-slot" id="p2CardSlot"><div class="card-placeholder">WAITING</div></div>
+                        <div id="p2WinnerBadge"></div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="pickRandomBtn" class="btn-secondary">Pick Two Random</button>
+                    <button id="startDuelBtn" class="btn-primary">Start Duel</button>
+                    <button id="resetDuelBtn" class="btn-secondary">Reset</button>
+                    <button id="stopDrawBtn" class="btn-danger">Stop</button>
+                    <button id="newDuelSameBtn" class="btn-success">New Duel</button>
+                </div>
+                <div class="deck-status" id="deckStatus">Deck: 0</div>
+                <div class="turn-indicator" id="turnStatus">No active duel</div>
+                <div id="gameMessage" style="background: rgba(255,255,255,0.6); border-radius: 60px; padding: 8px; margin-top: 12px; text-align: center;"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Participants -->
+        <div class="right-column">
+            <div class="panel participants-panel">
+                <div class="panel-title">Participants (<span id="participantCount">0</span>)</div>
+                <button id="clearAllBtn" class="btn-clear">Clear All</button>
+                <div id="participantListContainer" class="participant-list"></div>
+                <div id="startReadyCheckContainer" class="start-ready-check" style="display: none;">
+                    <button id="startReadyCheckBtn" class="btn-blue">Start Ready Check</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== CARD ASSETS ==========
+    const CARD_ASSET_PATH = "/assets/cards/";
+    const CARD_EXT = ".png";
+    function getCardImageUrl(rank, suitLetter) { return CARD_ASSET_PATH + rank + suitLetter + CARD_EXT; }
+    const suitFull = { 'H': '♥', 'D': '♦', 'C': '♣', 'S': '♠' };
+
+    // ========== GLOBAL STATE ==========
+    let participants = [];               // each element: { name, id, lastSeen }
+    let selectedPlayer1 = null, selectedPlayer2 = null;
+    let deck = [], isDuelActive = false, currentTurn = 0, duelWinner = null, drawTimeout = null;
+    let ws = null;
+    let inactivityInterval = null;
+    let currentMode = 'keyword';
+    let inactivityMinutes = 1;
+    let keyword = '!ace';
+    let participantRenderQueued = false;
+
+    // Ready check state
+    let readyCheckActive = false;
+    let readyCheckPlayers = [null, null];
+    let readyStatus = [false, false];
+    let readyTimers = [null, null];
+    let readyMessageLogs = [[], []];
+    let readyOverlayElement = null;
+
+    // DOM elements
+    const channelInput = document.getElementById('channelInput');
+    const setChannelBtn = document.getElementById('setChannelBtn');
+    const statusDisplay = document.getElementById('statusDisplay');
+    const participantName = document.getElementById('participantName');
+    const joinBtn = document.getElementById('joinBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const pickRandomBtn = document.getElementById('pickRandomBtn');
+    const startDuelBtn = document.getElementById('startDuelBtn');
+    const resetDuelBtn = document.getElementById('resetDuelBtn');
+    const stopDrawBtn = document.getElementById('stopDrawBtn');
+    const newDuelSameBtn = document.getElementById('newDuelSameBtn');
+    const participantCountSpan = document.getElementById('participantCount');
+    const participantListDiv = document.getElementById('participantListContainer');
+    const selectedDisplayDiv = document.getElementById('selectedDisplay');
+    const p1NameSpan = document.getElementById('p1Name');
+    const p2NameSpan = document.getElementById('p2Name');
+    const p1CardSlot = document.getElementById('p1CardSlot');
+    const p2CardSlot = document.getElementById('p2CardSlot');
+    const p1WinnerBadge = document.getElementById('p1WinnerBadge');
+    const p2WinnerBadge = document.getElementById('p2WinnerBadge');
+    const deckStatusSpan = document.getElementById('deckStatus');
+    const turnStatusSpan = document.getElementById('turnStatus');
+    const gameMessageSpan = document.getElementById('gameMessage');
+    const keywordInput = document.getElementById('keywordInput');
+    const setKeywordBtn = document.getElementById('setKeywordBtn');
+    const inactivitySlider = document.getElementById('inactivitySlider');
+    const inactivityValue = document.getElementById('inactivityValue');
+    const modeIndicator = document.getElementById('modeIndicator');
+    const startReadyCheckContainer = document.getElementById('startReadyCheckContainer');
+    const startReadyCheckBtn = document.getElementById('startReadyCheckBtn');
+
+    const radioKeyword = document.querySelector('input[value="keyword"]');
+    const radioActive = document.querySelector('input[value="active"]');
+    const keywordSettingsDiv = document.getElementById('keywordSettings');
+    const activeSettingsDiv = document.getElementById('activeSettings');
+
+    // ========== MODE TOGGLE ==========
+    radioKeyword.addEventListener('change', () => {
+        if (radioKeyword.checked) {
+            currentMode = 'keyword';
+            keywordSettingsDiv.style.display = 'block';
+            activeSettingsDiv.style.display = 'none';
+            modeIndicator.innerText = keyword || '!ace';
+            if (inactivityInterval) clearInterval(inactivityInterval);
+        }
+    });
+    radioActive.addEventListener('change', () => {
+        if (radioActive.checked) {
+            currentMode = 'active';
+            keywordSettingsDiv.style.display = 'none';
+            activeSettingsDiv.style.display = 'block';
+            modeIndicator.innerText = 'any message (active chatter)';
+            startInactivityChecker();
+        }
+    });
+
+    keywordInput.addEventListener('input', (e) => {
+        keyword = e.target.value.trim();
+        if (currentMode === 'keyword') modeIndicator.innerText = keyword || 'any message';
+    });
+
+    setKeywordBtn.addEventListener('click', () => {
+        keyword = keywordInput.value.trim();
+        if (currentMode === 'keyword') modeIndicator.innerText = keyword || 'any message';
+        gameMessageSpan.innerText = `Keyword set to "${keyword}"`;
+        setTimeout(() => { if (gameMessageSpan.innerText.includes('Keyword set')) gameMessageSpan.innerText = 'Ready.'; }, 2000);
+    });
+
+    inactivitySlider.addEventListener('input', (e) => {
+        inactivityMinutes = parseFloat(e.target.value);
+        inactivityValue.innerText = inactivityMinutes;
+        if (currentMode === 'active') {
+            if (inactivityInterval) clearInterval(inactivityInterval);
+            startInactivityChecker();
+        }
+    });
+
+    function startInactivityChecker() {
+        if (inactivityInterval) clearInterval(inactivityInterval);
+        inactivityInterval = setInterval(() => {
+            if (currentMode !== 'active') return;
+            const now = Date.now();
+            const timeoutMs = inactivityMinutes * 60 * 1000;
+            let removedAny = false;
+            let affectedSelected = false;
+            const newParticipants = participants.filter(p => {
+                if (now - p.lastSeen > timeoutMs) {
+                    removedAny = true;
+                    if ((selectedPlayer1 && selectedPlayer1.id === p.id) || (selectedPlayer2 && selectedPlayer2.id === p.id)) affectedSelected = true;
+                    return false;
+                }
+                return true;
+            });
+            if (removedAny) {
+                participants = newParticipants;
+                if (affectedSelected) {
+                    if (selectedPlayer1 && !participants.some(p => p.id === selectedPlayer1.id)) selectedPlayer1 = null;
+                    if (selectedPlayer2 && !participants.some(p => p.id === selectedPlayer2.id)) selectedPlayer2 = null;
+                    updateSelectedDisplay();
+                    resetGameVisualsOnly();
+                    gameMessageSpan.innerText = `Selected player(s) removed due to inactivity. Pick new duelists.`;
+                    setTimeout(() => { if (gameMessageSpan.innerText.includes('Pick new duelists')) gameMessageSpan.innerText = 'Ready.'; }, 4000);
+                } else {
+                    scheduleParticipantRender();
+                }
+            }
+        }, 5000);
+    }
+
+    // ========== WINNER & CONFETTI ==========
+    function showWinnerOverlay(winnerName) {
+        const existing = document.querySelector('.winner-overlay');
+        if (existing) existing.remove();
+        const overlay = document.createElement('div');
+        overlay.className = 'winner-overlay';
+        overlay.innerHTML = '<div class="winner-card"><h1>🏆 WINNER! 🏆</h1><p>' + escapeHtml(winnerName) + '</p><button id="closeWinnerBtn">Continue</button></div>';
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        document.getElementById('closeWinnerBtn').addEventListener('click', close);
+    }
+
+    function shootConfettiPiece() {
+        const conf = document.createElement('div');
+        conf.className = 'confetti-piece';
+        conf.style.left = Math.random() * window.innerWidth + 'px';
+        conf.style.top = '-20px';
+        conf.style.backgroundColor = 'hsl(' + (Math.random() * 360) + ', 80%, 60%)';
+        conf.style.width = (Math.random() * 10 + 4) + 'px';
+        conf.style.height = (Math.random() * 10 + 4) + 'px';
+        conf.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        document.body.appendChild(conf);
+        const anim = conf.animate([
+            { transform: 'translateY(0px) rotate(0deg)', opacity: 1 },
+            { transform: 'translateY(' + (window.innerHeight + 100) + 'px) rotate(' + (Math.random() * 360) + 'deg)', opacity: 0 }
+        ], { duration: 1500 + Math.random() * 1000, easing: 'cubic-bezier(0.2, 0.9, 0.4, 1)' });
+        anim.onfinish = () => conf.remove();
+    }
+
+    function shootConfetti() { for (let i = 0; i < 100; i++) { setTimeout(() => shootConfettiPiece(), i * 15); } }
+
+    // ========== PARTICIPANT MANAGEMENT ==========
+    function addParticipant(name, timestamp = Date.now()) {
+        const cleanName = name.trim();
+        if (!cleanName) return false;
+        if (participants.some(p => p.name.toLowerCase() === cleanName.toLowerCase())) return false;
+        participants.push({ name: cleanName, id: Date.now() + Math.random(), lastSeen: timestamp });
+        scheduleParticipantRender();
+        return true;
+    }
+
+    function updateParticipantSeen(name) {
+        const p = participants.find(p => p.name.toLowerCase() === name.toLowerCase());
+        if (p) {
+            p.lastSeen = Date.now();
+            scheduleParticipantRender();
+        }
+    }
+
+    function scheduleParticipantRender() {
+        if (participantRenderQueued) return;
+        participantRenderQueued = true;
+        setTimeout(() => {
+            renderParticipants();
+            participantRenderQueued = false;
+        }, 100);
+    }
+
+    function renderParticipants() {
+        participantListDiv.innerHTML = '';
+        const now = Date.now();
+        const timeoutMs = inactivityMinutes * 60 * 1000;
+        participants.forEach(p => {
+            const isExpiring = (currentMode === 'active') && (now - p.lastSeen > timeoutMs * 0.8);
+            let selectedClass = '';
+            if (selectedPlayer1 && selectedPlayer1.id === p.id) selectedClass = 'selected-player1';
+            else if (selectedPlayer2 && selectedPlayer2.id === p.id) selectedClass = 'selected-player2';
+            const div = document.createElement('div');
+            div.className = `participant-item ${selectedClass} ${isExpiring ? 'expiring' : ''}`;
+            div.setAttribute('data-id', p.id);
+            div.innerHTML = `
+                <span>${escapeHtml(p.name)}</span>
+                <div>
+                    <button class="edit-participant" data-id="${p.id}">✏️</button>
+                    <button class="remove-participant" data-id="${p.id}">✖</button>
+                </div>
+            `;
+            participantListDiv.appendChild(div);
+        });
+        participantCountSpan.innerText = participants.length;
+
+        document.querySelectorAll('.edit-participant').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.getAttribute('data-id'));
+                const participant = participants.find(p => p.id === id);
+                if (participant) {
+                    const newName = prompt('Edit participant name:', participant.name);
+                    if (newName && newName.trim()) {
+                        participant.name = newName.trim();
+                        if (selectedPlayer1 && selectedPlayer1.id === id) selectedPlayer1.name = participant.name;
+                        if (selectedPlayer2 && selectedPlayer2.id === id) selectedPlayer2.name = participant.name;
+                        renderParticipants();
+                        updateSelectedDisplay();
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll('.remove-participant').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.getAttribute('data-id'));
+                participants = participants.filter(p => p.id !== id);
+                if (selectedPlayer1 && selectedPlayer1.id === id) selectedPlayer1 = null;
+                if (selectedPlayer2 && selectedPlayer2.id === id) selectedPlayer2 = null;
+                renderParticipants();
+                updateSelectedDisplay();
+                resetGameVisualsOnly();
+                if (!selectedPlayer1 || !selectedPlayer2) startReadyCheckContainer.style.display = 'none';
+                else startReadyCheckContainer.style.display = 'block';
+            });
+        });
+
+        participantListDiv.querySelectorAll('.participant-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-participant') || e.target.classList.contains('remove-participant')) return;
+                const id = parseInt(item.getAttribute('data-id'));
+                const participant = participants.find(p => p.id === id);
+                if (!participant) return;
+                if (!selectedPlayer1) {
+                    selectedPlayer1 = participant;
+                    gameMessageSpan.innerText = `${participant.name} selected as Player 1`;
+                } else if (!selectedPlayer2 && selectedPlayer1.id !== participant.id) {
+                    selectedPlayer2 = participant;
+                    gameMessageSpan.innerText = `${participant.name} selected as Player 2`;
+                } else if (selectedPlayer1.id === participant.id) {
+                    selectedPlayer1 = null;
+                    gameMessageSpan.innerText = `Player 1 deselected`;
+                } else if (selectedPlayer2 && selectedPlayer2.id === participant.id) {
+                    selectedPlayer2 = null;
+                    gameMessageSpan.innerText = `Player 2 deselected`;
+                } else {
+                    gameMessageSpan.innerText = `Already have two players. Deselect one first.`;
+                }
+                updateSelectedDisplay();
+                renderParticipants();
+                if (selectedPlayer1 && selectedPlayer2) startReadyCheckContainer.style.display = 'block';
+                else startReadyCheckContainer.style.display = 'none';
+            });
+        });
+    }
+
+    function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m)); }
+    function updateSelectedDisplay() {
+        if(selectedPlayer1 && selectedPlayer2) selectedDisplayDiv.innerHTML = 'SELECTED: ' + escapeHtml(selectedPlayer1.name) + ' VS ' + escapeHtml(selectedPlayer2.name);
+        else if(selectedPlayer1) selectedDisplayDiv.innerHTML = 'Player 1: ' + escapeHtml(selectedPlayer1.name);
+        else if(selectedPlayer2) selectedDisplayDiv.innerHTML = 'Player 2: ' + escapeHtml(selectedPlayer2.name);
+        else selectedDisplayDiv.innerHTML = 'No duelists. Click on participants or use "Pick Two Random".';
+        p1NameSpan.innerText = selectedPlayer1 ? selectedPlayer1.name : "—";
+        p2NameSpan.innerText = selectedPlayer2 ? selectedPlayer2.name : "—";
+    }
+
+    // ========== READY CHECK OVERLAY ==========
+    function showReadyCheckOverlay(player1, player2) {
+        if (!player1 || !player2) {
+            gameMessageSpan.innerText = "Please select two players first.";
+            return;
+        }
+        if (readyOverlayElement) readyOverlayElement.remove();
+        readyCheckPlayers = [player1, player2];
+        readyStatus = [false, false];
+        readyMessageLogs = [[], []];
+        if (readyTimers[0]) clearTimeout(readyTimers[0]);
+        if (readyTimers[1]) clearTimeout(readyTimers[1]);
+        readyCheckActive = true;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'ready-overlay';
+        overlay.innerHTML = `
+            <div class="ready-container">
+                <div class="ready-title">⚡ Ready Check ⚡</div>
+                <div class="ready-players">
+                    <div class="ready-player-card" data-player="0">
+                        <div class="ready-player-name">${escapeHtml(readyCheckPlayers[0].name)}</div>
+                        <div id="readyStatus0" class="ready-status waiting">⏳ Waiting for message...</div>
+                        <div id="readyTimer0" class="ready-timer">30s left</div>
+                        <div id="readyLog0" class="ready-chat-log"></div>
+                        <button id="replaceBtn0" class="ready-replace-btn">🔄 Replace Player</button>
+                    </div>
+                    <div class="ready-player-card" data-player="1">
+                        <div class="ready-player-name">${escapeHtml(readyCheckPlayers[1].name)}</div>
+                        <div id="readyStatus1" class="ready-status waiting">⏳ Waiting for message...</div>
+                        <div id="readyTimer1" class="ready-timer">30s left</div>
+                        <div id="readyLog1" class="ready-chat-log"></div>
+                        <button id="replaceBtn1" class="ready-replace-btn">🔄 Replace Player</button>
+                    </div>
+                </div>
+                <div id="startBattleContainer" class="ready-start-battle" style="display: none;">
+                    <button id="startBattleBtn">Start Battle</button>
+                </div>
+                <div class="ready-cancel">
+                    <button id="cancelReadyBtn">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        readyOverlayElement = overlay;
+
+        function startTimer(index, seconds = 30) {
+            let timeLeft = seconds;
+            const timerEl = document.getElementById(`readyTimer${index}`);
+            const updateTimer = () => { timerEl.textContent = `${timeLeft}s left`; };
+            const timerInterval = setInterval(() => {
+                if (!readyCheckActive) { clearInterval(timerInterval); return; }
+                if (readyStatus[index]) { clearInterval(timerInterval); timerEl.textContent = `✅ Ready!`; return; }
+                timeLeft--;
+                updateTimer();
+                if (timeLeft <= 0) { clearInterval(timerInterval); timerEl.textContent = `Expired`; }
+            }, 1000);
+            readyTimers[index] = timerInterval;
+        }
+        startTimer(0);
+        startTimer(1);
+
+        document.getElementById('replaceBtn0').addEventListener('click', () => replacePlayer(0));
+        document.getElementById('replaceBtn1').addEventListener('click', () => replacePlayer(1));
+        document.getElementById('cancelReadyBtn').addEventListener('click', () => {
+            readyCheckActive = false;
+            overlay.remove();
+            if (readyTimers[0]) clearInterval(readyTimers[0]);
+            if (readyTimers[1]) clearInterval(readyTimers[1]);
+        });
+
+        function replacePlayer(index) {
+            if (!readyCheckActive) return;
+            const currentNames = readyCheckPlayers.map(p => p.name.toLowerCase());
+            const available = participants.filter(p => !currentNames.includes(p.name.toLowerCase()));
+            if (available.length === 0) {
+                gameMessageSpan.innerText = "No other participants to replace with.";
+                return;
+            }
+            const newPlayer = available[Math.floor(Math.random() * available.length)];
+            readyCheckPlayers[index] = newPlayer;
+            readyStatus[index] = false;
+            readyMessageLogs[index] = [];
+            const card = overlay.querySelector(`.ready-player-card[data-player="${index}"]`);
+            card.querySelector('.ready-player-name').innerHTML = escapeHtml(newPlayer.name);
+            const statusEl = document.getElementById(`readyStatus${index}`);
+            statusEl.className = 'ready-status waiting';
+            statusEl.textContent = '⏳ Waiting for message...';
+            const logEl = document.getElementById(`readyLog${index}`);
+            logEl.innerHTML = '';
+            if (readyTimers[index]) clearInterval(readyTimers[index]);
+            startTimer(index);
+        }
+
+        // Listen for chat messages from ready check players
+        window._readyCheckCallback = (username, content) => {
+            if (!readyCheckActive) return;
+            for (let i = 0; i < 2; i++) {
+                if (readyCheckPlayers[i] && readyCheckPlayers[i].name.toLowerCase() === username.toLowerCase()) {
+                    if (!readyStatus[i]) {
+                        readyStatus[i] = true;
+                        const statusEl = document.getElementById(`readyStatus${i}`);
+                        statusEl.className = 'ready-status ready';
+                        statusEl.textContent = '✅ Ready!';
+                        if (readyTimers[i]) clearInterval(readyTimers[i]);
+                        const timerEl = document.getElementById(`readyTimer${i}`);
+                        timerEl.textContent = `Ready!`;
+                    }
+                    readyMessageLogs[i].push({ message: content, timestamp: new Date().toLocaleTimeString() });
+                    const logEl = document.getElementById(`readyLog${i}`);
+                    logEl.innerHTML = readyMessageLogs[i].map(entry => `<div>${entry.timestamp} : ${escapeHtml(entry.message)}</div>`).join('');
+                    logEl.scrollTop = logEl.scrollHeight;
+                    break;
+                }
+            }
+            if (readyStatus[0] && readyStatus[1]) {
+                const startContainer = document.getElementById('startBattleContainer');
+                if (startContainer) startContainer.style.display = 'block';
+            }
+        };
+
+        const startBattleBtn = overlay.querySelector('#startBattleBtn');
+        startBattleBtn.addEventListener('click', () => {
+            if (readyStatus[0] && readyStatus[1]) {
+                readyCheckActive = false;
+                overlay.remove();
+                if (readyTimers[0]) clearInterval(readyTimers[0]);
+                if (readyTimers[1]) clearInterval(readyTimers[1]);
+                selectedPlayer1 = readyCheckPlayers[0];
+                selectedPlayer2 = readyCheckPlayers[1];
+                updateSelectedDisplay();
+                resetGameVisualsOnly();
+                gameMessageSpan.innerText = "Both players ready! Starting Ace Race...";
+                startAceDuel();
+            } else {
+                gameMessageSpan.innerText = "Both players must be ready first!";
+            }
+        });
+    }
+
+    // ========== DECK & DUEL LOGIC ==========
+    function buildAndShuffleDeck() {
+        const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+        const suits = ['H','D','C','S'];
+        let newDeck = [];
+        for(let suit of suits) for(let rank of ranks) newDeck.push({ rank: rank, suitLetter: suit, display: rank + suitFull[suit] });
+        for(let i=newDeck.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [newDeck[i],newDeck[j]]=[newDeck[j],newDeck[i]]; }
+        return newDeck;
+    }
+
+    function resetGameVisualsOnly() { if(drawTimeout) clearTimeout(drawTimeout); isDuelActive=false; duelWinner=null; currentTurn=0; deck=[]; p1CardSlot.innerHTML='<div class="card-placeholder">WAITING</div>'; p2CardSlot.innerHTML='<div class="card-placeholder">WAITING</div>'; p1WinnerBadge.innerHTML=''; p2WinnerBadge.innerHTML=''; turnStatusSpan.innerText='No active duel'; deckStatusSpan.innerText='Deck: 0'; gameMessageSpan.innerText='Ready.'; document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active-turn')); }
+    function stopDrawingAndResetGame() { if(drawTimeout) clearTimeout(drawTimeout); isDuelActive=false; duelWinner=null; }
+
+    function renderCardToSlot(slotElement, card) {
+        if(!card) { slotElement.innerHTML='<div class="card-placeholder">NO CARD</div>'; return; }
+        const imgUrl = getCardImageUrl(card.rank, card.suitLetter);
+        const img = document.createElement('img'); img.className='card-image'; img.src=imgUrl; img.alt=card.display;
+        img.onerror = function() { img.style.display='none'; const fallback=document.createElement('div'); fallback.className='card-placeholder'; fallback.innerText=card.display; slotElement.innerHTML=''; slotElement.appendChild(fallback); };
+        slotElement.innerHTML = ''; slotElement.appendChild(img);
+    }
+
+    async function drawStep() {
+        if(!isDuelActive || duelWinner) return;
+        if(deck.length===0) { gameMessageSpan.innerText="Deck empty! Reshuffling."; deck = buildAndShuffleDeck(); deckStatusSpan.innerText='Deck: ' + deck.length; }
+        const currentPlayer = currentTurn===0 ? selectedPlayer1 : selectedPlayer2;
+        if(!currentPlayer) { stopDrawingAndResetGame(); return; }
+        const card = deck.pop();
+        deckStatusSpan.innerText = 'Deck: ' + deck.length + ' cards';
+        if(currentTurn===0) renderCardToSlot(p1CardSlot, card);
+        else renderCardToSlot(p2CardSlot, card);
+        if(card.rank === 'A') {
+            duelWinner = { name: currentPlayer.name, side: currentTurn };
+            isDuelActive = false; if(drawTimeout) clearTimeout(drawTimeout);
+            turnStatusSpan.innerText = 'WINNER: ' + currentPlayer.name + ' drew an ACE!';
+            gameMessageSpan.innerText = currentPlayer.name + ' pulled the ACE! Victory!';
+            if(currentTurn===0) p1WinnerBadge.innerHTML='<div class="winner-badge">ACE WINNER</div>';
+            else p2WinnerBadge.innerHTML='<div class="winner-badge">ACE WINNER</div>';
+            document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active-turn'));
+            shootConfetti();
+            setTimeout(() => showWinnerOverlay(currentPlayer.name), 1000);
+            return;
+        }
+        currentTurn = currentTurn===0 ? 1 : 0;
+        turnStatusSpan.innerText = 'Next: ' + (currentTurn===0 ? selectedPlayer1.name : selectedPlayer2.name) + ' draws...';
+        document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active-turn'));
+        const activeCard = currentTurn === 0 ? document.getElementById('player1Card') : document.getElementById('player2Card');
+        if(activeCard) activeCard.classList.add('active-turn');
+        if(isDuelActive && !duelWinner) drawTimeout = setTimeout(() => drawStep(), 550);
+    }
+
+    function startAceDuel() {
+        if(!selectedPlayer1 || !selectedPlayer2) { gameMessageSpan.innerText = "Select two duelists first!"; return; }
+        if(isDuelActive) { gameMessageSpan.innerText = "Duel already in progress!"; return; }
+        if(drawTimeout) clearTimeout(drawTimeout);
+        p1WinnerBadge.innerHTML = ''; p2WinnerBadge.innerHTML = '';
+        p1CardSlot.innerHTML = '<div class="card-placeholder">DRAWING...</div>';
+        p2CardSlot.innerHTML = '<div class="card-placeholder">DRAWING...</div>';
+        duelWinner = null; deck = buildAndShuffleDeck(); isDuelActive = true; currentTurn = 0;
+        turnStatusSpan.innerText = 'DUEL START! ' + selectedPlayer1.name + ' draws first...';
+        deckStatusSpan.innerText = 'Deck: ' + deck.length + ' | SHUFFLED';
+        document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active-turn'));
+        document.getElementById('player1Card').classList.add('active-turn');
+        drawTimeout = setTimeout(() => drawStep(), 400);
+    }
+
+    function resetDuel() { if(drawTimeout) clearTimeout(drawTimeout); isDuelActive=false; duelWinner=null; currentTurn=0; deck=[]; p1CardSlot.innerHTML='<div class="card-placeholder">READY</div>'; p2CardSlot.innerHTML='<div class="card-placeholder">READY</div>'; p1WinnerBadge.innerHTML=''; p2WinnerBadge.innerHTML=''; turnStatusSpan.innerText='Duel reset.'; deckStatusSpan.innerText='Deck: 0'; gameMessageSpan.innerText='Reset. Press START.'; document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active-turn')); }
+    function newDuelSamePlayers() { if(selectedPlayer1 && selectedPlayer2) { resetDuel(); startAceDuel(); } else gameMessageSpan.innerText="No players selected."; }
+    function clearAllParticipants() { if(confirm("Clear all?")) { participants = []; selectedPlayer1 = null; selectedPlayer2 = null; renderParticipants(); updateSelectedDisplay(); resetGameVisualsOnly(); startReadyCheckContainer.style.display = 'none'; } }
+    function manualJoin() {
+        const name = participantName.value.trim();
+        if(!name) { gameMessageSpan.innerText = "Enter a name."; return; }
+        if(addParticipant(name)) {
+            participantName.value = '';
+            gameMessageSpan.innerText = name + ' joined!';
+        } else {
+            gameMessageSpan.innerText = "Name already in list.";
+        }
+    }
+
+    // ========== WEBSOCKET ==========
+    function connectWebSocket() {
+        ws = new WebSocket('ws://' + window.location.host);
+        ws.onopen = () => console.log('WebSocket connected');
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'chat') {
+                    const username = data.username;
+                    const content = data.content.trim().toLowerCase();
+                    // Call ready check callback if active
+                    if (window._readyCheckCallback) window._readyCheckCallback(username, content);
+                    // Normal participant handling
+                    const keywordLower = keyword.toLowerCase();
+                    if (currentMode === 'keyword') {
+                        if (keywordLower === '' || content === keywordLower || content.startsWith(keywordLower + ' ')) {
+                            addParticipant(username);
+                        }
+                    } else {
+                        if (!participants.some(p => p.name.toLowerCase() === username.toLowerCase())) {
+                            addParticipant(username);
+                        } else {
+                            updateParticipantSeen(username);
+                        }
+                    }
+                }
+            } catch(e) { console.error('WebSocket message error:', e); }
+        };
+        ws.onerror = (err) => console.error('WebSocket error:', err);
+        ws.onclose = () => setTimeout(connectWebSocket, 3000);
+    }
+
+    async function checkStatus() {
+        try {
+            const res = await fetch('/chat-status');
+            const data = await res.json();
+            if (data.connected) {
+                statusDisplay.innerHTML = `✅ Connected to <strong>${data.channel}</strong>`;
+                statusDisplay.style.background = '#d1fae5';
+            } else {
+                statusDisplay.innerHTML = '⚪ Not connected';
+                statusDisplay.style.background = 'rgba(255,255,255,0.6)';
+            }
+        } catch(e) {
+            statusDisplay.innerHTML = '❌ Error connecting to server';
+            statusDisplay.style.background = '#fee2e2';
+        }
+    }
+
+    setChannelBtn.addEventListener('click', async () => {
+        const channel = channelInput.value.trim().toLowerCase();
+        if (!channel) { alert('Please enter a channel name'); return; }
+        statusDisplay.innerHTML = '⏳ Connecting...';
+        statusDisplay.style.background = 'rgba(255,255,255,0.6)';
+        try {
+            const res = await fetch('/set-channel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel })
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusDisplay.innerHTML = `✅ Connected to <strong>${data.channel}</strong>`;
+                statusDisplay.style.background = '#d1fae5';
+                gameMessageSpan.innerText = `Connected to #${data.channel}`;
+            } else {
+                statusDisplay.innerHTML = `❌ Failed: ${data.error || 'Unknown error'}`;
+                statusDisplay.style.background = '#fee2e2';
+            }
+        } catch(err) {
+            statusDisplay.innerHTML = '❌ Server error';
+            statusDisplay.style.background = '#fee2e2';
+        }
+    });
+
+    pickRandomBtn.addEventListener('click', () => {
+        if (isDuelActive) {
+            gameMessageSpan.innerText = "Stop current duel first.";
+            return;
+        }
+        if (participants.length < 2) {
+            gameMessageSpan.innerText = "Need at least 2 participants.";
+            return;
+        }
+        let shuffled = [...participants];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        selectedPlayer1 = shuffled[0];
+        selectedPlayer2 = shuffled[1];
+        updateSelectedDisplay();
+        renderParticipants();
+        resetGameVisualsOnly();
+        gameMessageSpan.innerText = `Randomly selected: ${selectedPlayer1.name} vs ${selectedPlayer2.name}`;
+        startReadyCheckContainer.style.display = 'block';
+        showReadyCheckOverlay(selectedPlayer1, selectedPlayer2);
+    });
+
+    startReadyCheckBtn.addEventListener('click', () => {
+        if (selectedPlayer1 && selectedPlayer2) {
+            showReadyCheckOverlay(selectedPlayer1, selectedPlayer2);
+        } else {
+            gameMessageSpan.innerText = "Select two players first (click on names or use 'Pick Two Random').";
+        }
+    });
+
+    joinBtn.addEventListener('click', manualJoin);
+    clearAllBtn.addEventListener('click', clearAllParticipants);
+    startDuelBtn.addEventListener('click', startAceDuel);
+    resetDuelBtn.addEventListener('click', resetDuel);
+    stopDrawBtn.addEventListener('click', () => { stopDrawingAndResetGame(); resetGameVisualsOnly(); gameMessageSpan.innerText="Stopped."; });
+    newDuelSameBtn.addEventListener('click', newDuelSamePlayers);
+
+    connectWebSocket();
+    renderParticipants();
+    setInterval(checkStatus, 10000);
+    checkStatus();
+
+    radioKeyword.checked = true;
+    currentMode = 'keyword';
+    keywordSettingsDiv.style.display = 'block';
+    activeSettingsDiv.style.display = 'none';
+    modeIndicator.innerText = keyword || '!ace';
+</script>
+</body>
+</html>
